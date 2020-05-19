@@ -369,8 +369,7 @@ class Mock(unittest.mock.Mock, metaclass=MockMetaMixin):
     For instance:
 
     >>> class Foo:
-    ...     @asyncio.coroutine
-    ...     def foo(self):
+    ...     async def foo(self):
     ...         pass
     ...
     ...     def bar(self):
@@ -430,8 +429,7 @@ class _AwaitEvent:
         self._mock = mock
         self._condition = None
 
-    @asyncio.coroutine
-    def wait(self, skip=0):
+    async def wait(self, skip=0):
         """
         Wait for await.
 
@@ -442,10 +440,9 @@ class _AwaitEvent:
         def predicate(mock):
             return mock.await_count > skip
 
-        return (yield from self.wait_for(predicate))
+        return await self.wait_for(predicate)
 
-    @asyncio.coroutine
-    def wait_next(self, skip=0):
+    async def wait_next(self, skip=0):
         """
         Wait for the next await.
 
@@ -462,10 +459,9 @@ class _AwaitEvent:
         def predicate(mock):
             return mock.await_count > await_count + skip
 
-        return (yield from self.wait_for(predicate))
+        return await self.wait_for(predicate)
 
-    @asyncio.coroutine
-    def wait_for(self, predicate):
+    async def wait_for(self, predicate):
         """
         Wait for a given predicate to become True.
 
@@ -476,21 +472,20 @@ class _AwaitEvent:
         condition = self._get_condition()
 
         try:
-            yield from condition.acquire()
+            await condition.acquire()
 
             def _predicate():
                 return predicate(self._mock)
 
-            return (yield from condition.wait_for(_predicate))
+            return await condition.wait_for(_predicate)
         finally:
             condition.release()
 
-    @asyncio.coroutine
-    def _notify(self):
+    async def _notify(self):
         condition = self._get_condition()
 
         try:
-            yield from condition.acquire()
+            await condition.acquire()
             condition.notify_all()
         finally:
             condition.release()
@@ -595,18 +590,17 @@ class CoroutineMock(Mock):
 
         _call = _mock_self.call_args
 
-        @asyncio.coroutine
-        def proxy():
+        async def proxy():
             try:
                 if inspect.isawaitable(result):
-                    return (yield from result)
+                    return await result
                 else:
                     return result
             finally:
                 _mock_self.await_count += 1
                 _mock_self.await_args = _call
                 _mock_self.await_args_list.append(_call)
-                yield from _mock_self.awaited._notify()
+                await _mock_self.awaited._notify()
 
         return proxy()
 
@@ -1180,13 +1174,11 @@ def patch(target, new=DEFAULT, spec=None, create=False, spec_set=None,
     When used as a context manager, the patch is still active even if the
     generator or coroutine is paused, which may affect concurrent tasks::
 
-        @asyncio.coroutine
-        def coro():
+        async def coro():
             with asynctest.mock.patch("module.function"):
-                yield from asyncio.get_event_loop().sleep(1)
+                await asyncio.get_event_loop().sleep(1)
 
-        @asyncio.coroutine
-        def independent_coro():
+        await def independent_coro():
             assert not isinstance(module.function, asynctest.mock.Mock)
 
         asyncio.create_task(coro())
@@ -1200,15 +1192,12 @@ def patch(target, new=DEFAULT, spec=None, create=False, spec_set=None,
     When used as a decorator with a generator based coroutine, the order of
     the decorators matters. The order of the ``@patch()`` decorators is in
     the reverse order of the parameters produced by these patches for the
-    patched function. And the ``@asyncio.coroutine`` decorator should be
-    the last since ``@patch()`` conceptually patches the coroutine, not
-    the function::
+    patched function::
 
         @patch("module.function2")
         @patch("module.function1")
-        @asyncio.coroutine
-        def test_coro(self, mock_function1, mock_function2):
-            yield from asyncio.get_event_loop().sleep(1)
+        async def test_coro(self, mock_function1, mock_function2):
+            await asyncio.get_event_loop().sleep(1)
 
     see :func:`unittest.mock.patch()`.
 
