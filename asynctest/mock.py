@@ -82,7 +82,7 @@ def _get_async_iter(mock):
         return _AsyncIterator(iterator)
 
     if asyncio.iscoroutinefunction(mock.__aiter__):
-        return asyncio.coroutine(__aiter__)
+        return __aiter__
 
     return __aiter__
 
@@ -584,9 +584,9 @@ class CoroutineMock(Mock):
             if side_effect is not None and not callable(side_effect):
                 raise
 
-            result = asyncio.coroutine(_raise)(e)
+            result = _raise(e)
         except BaseException as e:
-            result = asyncio.coroutine(_raise)(e)
+            result = _raise(e)
 
         _call = _mock_self.call_args
 
@@ -996,10 +996,6 @@ def _decorate_coroutine_callable(func, new_patching):
             return (yield from patched_factory(*args, **kwargs))
 
         patched = patched_generator
-
-        if is_coroutine_func:
-            # asyncio.iscoroutinefunction() returns True
-            patched = asyncio.coroutine(patched)
     else:
         patched = patched_factory
 
